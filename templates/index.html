@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Irrigation | Living Garden Control Room</title>
+
+  <!-- Google Fonts: Poppins (UI) & JetBrains Mono (Data/Numbers) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            garden: {
+              dark: '#071311',
+              darker: '#040b09',
+              emerald: '#10b981',
+              accent: '#8b5cf6',
+              cyan: '#06b6d4',
+              amber: '#f59e0b',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- FontAwesome 6 for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --color-dry: #ef4444;
+      --color-dry-warm: #f59e0b;
+      --color-optimal: #22c55e;
+      --color-wet: #38bdf8;
+      --color-accent: #a78bfa;
+      --bg-gradient-start: #061612;
+      --bg-gradient-end: #0a1726;
+      --card-bg: rgba(13, 31, 26, 0.72);
+      --card-border: rgba(34, 197, 94, 0.18);
+      --card-border-hover: rgba(34, 197, 94, 0.42);
+      --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+    }
+
+    html.light {
+      --bg-gradient-start: #eafaf1;
+      --bg-gradient-end: #e0f2fe;
+      --card-bg: rgba(255, 255, 255, 0.88);
+      --card-border: rgba(16, 185, 129, 0.28);
+      --card-border-hover: rgba(16, 185, 129, 0.55);
+      --card-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.15);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background 0.5s ease, color 0.5s ease;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .aurora-container {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .aurora-blob {
+      position: absolute;
+      filter: blur(100px);
+      border-radius: 50%;
+      opacity: 0.35;
+      animation: floatAurora 18s infinite alternate ease-in-out;
+    }
+    .blob-1 {
+      width: 550px; height: 550px;
+      background: radial-gradient(circle, #059669 0%, transparent 70%);
+      top: -120px; left: -100px;
+    }
+    .blob-2 {
+      width: 650px; height: 650px;
+      background: radial-gradient(circle, #0284c7 0%, transparent 70%);
+      bottom: -150px; right: -150px;
+      animation-duration: 24s;
+    }
+    .blob-3 {
+      width: 450px; height: 450px;
+      background: radial-gradient(circle, #7c3aed 0%, transparent 70%);
+      top: 40%; left: 45%;
+      animation-duration: 20s;
+      opacity: 0.22;
+    }
+
+    @keyframes floatAurora {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(50px, 70px) scale(1.1); }
+      100% { transform: translate(-40px, 40px) scale(0.95); }
+    }
+
+    #particles-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      box-shadow: var(--card-shadow);
+      border-radius: 1.25rem;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .glass-card:hover {
+      border-color: var(--card-border-hover);
+      box-shadow: 0 14px 44px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .gauge-arc-bg {
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-linecap: round;
+    }
+    html.light .gauge-arc-bg {
+      stroke: rgba(0, 0, 0, 0.08);
+    }
+    .gauge-arc-fill {
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.6s ease;
+      filter: drop-shadow(0 0 12px currentColor);
+    }
+
+    @keyframes waveMove1 {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-160px); }
+    }
+    @keyframes waveMove2 {
+      0% { transform: translateX(-80px); }
+      100% { transform: translateX(80px); }
+    }
+    .wave-path-1 { animation: waveMove1 5s infinite linear; }
+    .wave-path-2 { animation: waveMove2 8s infinite linear; }
+
+    @keyframes spinSmooth {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .spin-fast { animation: spinSmooth 0.65s infinite linear; }
+    .spin-stop {
+      transform: rotate(0deg);
+      transition: transform 1.2s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    @keyframes pipeFlow {
+      0% { stroke-dashoffset: 80; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .pipe-active {
+      stroke-dasharray: 8, 8;
+      animation: pipeFlow 0.75s infinite linear;
+    }
+
+    @keyframes alertShake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-7px); }
+      40%, 80% { transform: translateX(7px); }
+    }
+    .shake-anim { animation: alertShake 0.5s ease-in-out; }
+
+    @keyframes fadeUpEntrance {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up {
+      animation: fadeUpEntrance 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .ripple-btn {
+      position: relative;
+      overflow: hidden;
+    }
+    .ripple-effect {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.35);
+      transform: scale(0);
+      animation: rippleAnim 0.6s linear;
+      pointer-events: none;
+    }
+    @keyframes rippleAnim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    .stale-overlay {
+      filter: grayscale(0.5) opacity(0.85);
+      transition: filter 0.4s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .aurora-blob { display: none; }
+      #particles-canvas { display: none; }
+    }
+  </style>
+</head>
+<body class="relative font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Ambient aurora and particles -->
+  <div class="aurora-container">
+    <div class="aurora-blob blob-1"></div>
+    <div class="aurora-blob blob-2"></div>
+    <div class="aurora-blob blob-3"></div>
+  </div>
+  <canvas id="particles-canvas"></canvas>
+
+  <!-- Loading Splash Screen (Auto-dismisses in 1.2s) -->
+  <div id="splash-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#071311] transition-opacity duration-700">
+    <div class="relative w-28 h-28 mb-4">
+      <svg viewBox="0 0 100 100" class="w-full h-full text-emerald-400">
+        <path d="M50 90 L50 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" class="animate-pulse" />
+        <path d="M50 65 Q30 55 25 40 Q40 40 50 60" fill="#10b981" opacity="0.9" />
+        <path d="M50 50 Q70 35 75 22 Q60 22 50 45" fill="#34d399" opacity="0.9" />
+      </svg>
+      <div class="absolute -bottom-2 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 rounded-full blur-sm"></div>
+    </div>
+    <h2 class="text-xl font-bold tracking-wider text-emerald-400 font-sans">LIVING GARDEN</h2>
+    <p class="text-xs text-emerald-200/70 tracking-widest uppercase mt-1">Initializing Dashboard...</p>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Disconnection Banner -->
+  <div id="disconnection-banner" class="hidden fixed top-0 inset-x-0 z-40 bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-white px-4 py-2.5 shadow-2xl transition-all duration-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs sm:text-sm font-medium">
+      <div class="flex items-center gap-3">
+        <span class="flex h-3 w-3 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+        </span>
+        <span id="disconnect-msg">Waiting for Arduino connection...</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="connectWebSerial()" class="px-3 py-1 rounded bg-white text-gray-900 font-bold hover:bg-emerald-100 transition-colors shadow">
+          <i class="fa-solid fa-plug text-emerald-600 mr-1"></i> Connect USB Port
+        </button>
+        <button onclick="toggleDemoMode(true)" class="px-3 py-1 rounded bg-black/40 hover:bg-black/60 font-mono text-xs transition-colors">
+          Interactive Demo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Alert Banners -->
+  <div class="relative z-20 max-w-7xl mx-auto px-4 pt-4 space-y-2">
+    <div id="safety-alert" class="hidden shake-anim glass-card !border-amber-500/50 !bg-amber-950/40 p-4 text-amber-200 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 text-lg">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <h4 class="font-bold text-sm tracking-wide text-amber-300">SAFETY SHUTOFF ACTIVATED</h4>
+          <p class="text-xs text-amber-200/80">Pump exceeded continuous 60-second limit. Forced OFF to prevent overflow or pump damage.</p>
+        </div>
+      </div>
+      <button onclick="sendControl('AUTO')" class="px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-gray-950 rounded-lg transition-colors">
+        Acknowledge & Reset
+      </button>
+    </div>
+
+    <div id="sensor-fault-alert" class="hidden shake-anim glass-card !border-rose-500/50 !bg-rose-950/40 p-4 text-rose-200 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 text-lg">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h4 class="font-bold text-sm tracking-wide text-rose-300">SENSOR OUT OF RANGE / HARDWARE FAULT</h4>
+          <p class="text-xs text-rose-200/80">Analog A0 reading is abnormal (&lt;150 or &gt;950). Pump has been safely inhibited. Check wiring.</p>
+        </div>
+      </div>
+      <span class="text-xs font-mono bg-rose-500/20 px-2.5 py-1 rounded text-rose-300">FAILSAFE LOCKED</span>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <main id="dashboard-root" class="relative z-10 max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
+
+    <!-- Header -->
+    <header class="glass-card px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-up" style="animation-delay: 0.1s;">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-gray-950 text-xl shadow-lg shadow-emerald-500/25">
+          <i class="fa-solid fa-seedling"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-white">Living Garden</h1>
+            <span class="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">IoT v2.4</span>
+            <span id="demo-badge" class="hidden text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">DEMO SIMULATOR</span>
+          </div>
+          <p class="text-xs text-slate-400">Precision Soil Moisture & Automated Irrigation</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions in Header -->
+      <div class="flex flex-wrap items-center gap-3 sm:gap-4 w-full md:w-auto justify-between md:justify-center">
+        <!-- Direct Web Serial Connect Button -->
+        <button id="web-serial-btn" onclick="connectWebSerial()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs tracking-wide flex items-center gap-2 shadow-lg shadow-emerald-950 transition-all">
+          <i class="fa-solid fa-plug"></i>
+          <span id="web-serial-btn-text">Connect USB (Web Serial)</span>
+        </button>
+
+        <!-- Connection Pill -->
+        <div id="connection-pill" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-emerald-500/30 text-xs font-medium cursor-pointer" onclick="toggleDemoMode()" title="Toggle Hardware / Demo Mode">
+          <span id="conn-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+          <span id="connection-pill-text" class="text-emerald-300 font-mono">Arduino Connected</span>
+          <span id="connection-port-text" class="text-[10px] text-slate-400 font-mono">(Ready)</span>
+        </div>
+
+        <!-- Mode Segmented Control -->
+        <div class="flex items-center bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs font-semibold">
+          <button id="mode-btn-auto" onclick="sendControl('AUTO')" class="px-3.5 py-1.5 rounded-lg transition-all duration-300 text-white bg-emerald-600 shadow-md">
+            AUTO
+          </button>
+          <button id="mode-btn-manual" onclick="setManualPrompt()" class="px-3.5 py-1.5 rounded-lg transition-all duration-300 text-slate-400 hover:text-white">
+            MANUAL
+          </button>
+        </div>
+
+        <!-- Audio Toggle -->
+        <button id="audio-toggle" onclick="toggleAudio()" class="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 flex items-center justify-center text-slate-400 hover:text-emerald-400 transition-colors" title="Toggle Sound">
+          <i id="audio-icon" class="fa-solid fa-volume-xmark"></i>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" onclick="toggleTheme()" class="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Toggle Dark/Light Mode">
+          <i id="theme-icon" class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Section: Gauge & Pump -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Hero Gauge Card (Col 1-7) -->
+      <section class="lg:col-span-7 glass-card p-6 md:p-8 flex flex-col justify-between relative overflow-hidden animate-fade-up" style="animation-delay: 0.2s;">
+        <div class="flex items-center justify-between mb-4 z-10">
+          <div>
+            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-droplet text-cyan-400"></i>
+              Capacitive Soil Moisture
+            </h2>
+            <p class="text-xs text-slate-400">Continuous 10-sample ADC moving average</p>
+          </div>
+          <div id="moisture-zone-badge" class="px-3 py-1 rounded-full text-xs font-bold tracking-wide border flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+            <span class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+            <span id="zone-text">OPTIMAL</span>
+          </div>
+        </div>
+
+        <!-- SVG Gauge -->
+        <div class="relative flex items-center justify-center py-4 my-auto">
+          <div id="gauge-glow-halo" class="absolute w-64 h-64 rounded-full blur-2xl opacity-20 pointer-events-none transition-all duration-700 bg-emerald-500"></div>
+
+          <div class="relative w-72 h-72 md:w-80 md:h-80">
+            <svg viewBox="0 0 300 300" class="w-full h-full">
+              <defs>
+                <clipPath id="gauge-liquid-mask">
+                  <circle cx="150" cy="150" r="82" />
+                </clipPath>
+
+                <linearGradient id="gaugeGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#ef4444" />
+                  <stop offset="35%" stop-color="#f59e0b" />
+                  <stop offset="65%" stop-color="#22c55e" />
+                  <stop offset="100%" stop-color="#38bdf8" />
+                </linearGradient>
+
+                <linearGradient id="liquidGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.8" />
+                  <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95" />
+                </linearGradient>
+                <linearGradient id="liquidGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55" />
+                  <stop offset="100%" stop-color="#0369a1" stop-opacity="0.85" />
+                </linearGradient>
+              </defs>
+
+              <g clip-path="url(#gauge-liquid-mask)">
+                <circle cx="150" cy="150" r="82" fill="#08231c" opacity="0.6" />
+                <g id="wave-container" transform="translate(0, 150)" class="transition-transform duration-700 ease-out">
+                  <path class="wave-path-2" fill="url(#liquidGrad2)"
+                    d="M -160 0 Q -120 -10 -80 0 T 0 0 T 80 0 T 160 0 T 240 0 T 320 0 T 400 0 L 400 240 L -160 240 Z" />
+                  <path class="wave-path-1" fill="url(#liquidGrad1)"
+                    d="M 0 0 Q 40 10 80 0 T 160 0 T 240 0 T 320 0 T 400 0 T 480 0 L 480 240 L 0 240 Z" />
+                </g>
+              </g>
+
+              <circle cx="150" cy="150" r="84" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+
+              <circle
+                class="gauge-arc-bg"
+                cx="150"
+                cy="150"
+                r="110"
+                fill="none"
+                stroke-width="16"
+                stroke-dasharray="518.36 691.15"
+                stroke-dashoffset="0"
+                transform="rotate(135 150 150)"
+              />
+
+              <circle
+                id="gauge-fill-path"
+                class="gauge-arc-fill"
+                cx="150"
+                cy="150"
+                r="110"
+                fill="none"
+                stroke="url(#gaugeGradient)"
+                stroke-width="16"
+                stroke-dasharray="518.36 691.15"
+                stroke-dashoffset="285.0"
+                transform="rotate(135 150 150)"
+              />
+            </svg>
+
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none z-10">
+              <div id="plant-avatar" class="text-2xl mb-0.5 transition-transform duration-500">🌿</div>
+              <span class="text-[10px] uppercase font-mono tracking-widest text-emerald-300/80">SOIL MOISTURE</span>
+              <div class="flex items-baseline justify-center">
+                <span id="moisture-number" class="text-5xl md:text-6xl font-extrabold font-mono text-white tracking-tight">45</span>
+                <span class="text-2xl font-mono text-cyan-300 ml-1 font-semibold">%</span>
+              </div>
+              <div class="mt-1 text-[11px] font-mono text-slate-300/90 bg-slate-950/70 px-3 py-0.5 rounded-full border border-white/10 shadow-sm">
+                ADC Raw: <span id="gauge-raw-val" class="text-emerald-400 font-bold">512</span>
+              </div>
+            </div>
+
+            <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div class="w-full flex justify-between px-2 text-[10px] font-mono text-slate-400 mt-52">
+                <div class="flex items-center gap-1 bg-slate-900/85 px-2 py-0.5 rounded border border-rose-500/30 text-rose-300 shadow">
+                  <i class="fa-solid fa-arrow-down"></i> ON: <span id="thresh-on-label">30</span>%
+                </div>
+                <div class="flex items-center gap-1 bg-slate-900/85 px-2 py-0.5 rounded border border-emerald-500/30 text-emerald-300 shadow">
+                  OFF: <span id="thresh-off-label">60</span>% <i class="fa-solid fa-arrow-up"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 text-center text-xs pt-4 border-t border-white/5 z-10">
+          <div class="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+            <span class="block text-[10px] uppercase font-mono text-rose-400 font-semibold">Dry (&lt;30%)</span>
+            <span class="text-slate-300 text-[11px]">Auto Pump Trigger</span>
+          </div>
+          <div class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <span class="block text-[10px] uppercase font-mono text-emerald-400 font-semibold">Target (30-60%)</span>
+            <span class="text-slate-300 text-[11px]">Optimal Root Hydration</span>
+          </div>
+          <div class="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <span class="block text-[10px] uppercase font-mono text-cyan-400 font-semibold">Wet (&gt;60%)</span>
+            <span class="text-slate-300 text-[11px]">Relay Safe Cutoff</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pump Unit Card (Col 8-12) -->
+      <section class="lg:col-span-5 glass-card p-6 md:p-8 flex flex-col justify-between animate-fade-up" style="animation-delay: 0.3s;">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-gears text-purple-400"></i>
+                Submersible Pump Unit
+              </h2>
+              <p class="text-xs text-slate-400">5V Relay Module on Pin 8 (Active-LOW)</p>
+            </div>
+            <div id="pump-status-pill" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold font-mono tracking-wider transition-all duration-500 bg-slate-800 text-slate-400 border border-slate-700">
+              <span id="pump-led" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+              <span id="pump-status-text">OFF</span>
+            </div>
+          </div>
+
+          <div class="p-6 my-4 rounded-2xl bg-slate-950/60 border border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
+            <svg viewBox="0 0 240 50" class="w-full h-10 mb-2">
+              <path d="M 10 25 L 230 25" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round" />
+              <path id="pipe-liquid" d="M 10 25 L 230 25" stroke="#06b6d4" stroke-width="6" stroke-linecap="round" class="opacity-0 transition-opacity duration-500" />
+            </svg>
+
+            <div class="relative flex items-center justify-center">
+              <div id="impeller-halo" class="absolute w-24 h-24 rounded-full bg-emerald-500/25 blur-xl opacity-0 transition-opacity duration-500"></div>
+              <div id="impeller-icon" class="w-16 h-16 rounded-full bg-slate-900 border border-emerald-500/30 flex items-center justify-center text-2xl text-emerald-400 spin-stop shadow-inner">
+                <i class="fa-solid fa-fan"></i>
+              </div>
+            </div>
+
+            <div class="mt-4 text-center">
+              <span class="text-[11px] font-mono text-slate-400 uppercase tracking-widest block">Continuous Run Time</span>
+              <span id="pump-runtime-clock" class="text-2xl font-bold font-mono text-white tracking-wider">00:00:00</span>
+            </div>
+
+            <div class="w-full mt-3">
+              <div class="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                <span>Safety Limit Progress (60s Max)</span>
+                <span id="safety-progress-label">0s / 60s</span>
+              </div>
+              <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-white/5">
+                <div id="safety-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 rounded-full transition-all duration-300 w-0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="space-y-3 pt-3 border-t border-white/5">
+          <span class="text-[11px] font-mono uppercase text-slate-400 tracking-wider block">Relay Command Overrides</span>
+          <div class="grid grid-cols-2 gap-3">
+            <button id="btn-force-on" onclick="sendControl('PUMP_ON')" class="ripple-btn group relative px-4 py-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 active:scale-95 text-white font-semibold text-xs tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-emerald-950 transition-all">
+              <i class="fa-solid fa-play group-hover:scale-110 transition-transform"></i>
+              <span class="btn-text">Force Pump ON</span>
+              <span class="btn-spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+            </button>
+
+            <button id="btn-force-off" onclick="sendControl('PUMP_OFF')" class="ripple-btn group relative px-4 py-3 rounded-xl bg-rose-600/90 hover:bg-rose-500 active:scale-95 text-white font-semibold text-xs tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-rose-950 transition-all">
+              <i class="fa-solid fa-stop group-hover:scale-110 transition-transform"></i>
+              <span class="btn-text">Force Pump OFF</span>
+              <span class="btn-spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+            </button>
+          </div>
+
+          <button id="btn-enable-auto" onclick="sendControl('AUTO')" class="ripple-btn group w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-white/10 text-slate-200 font-semibold text-xs tracking-wide flex items-center justify-center gap-2 transition-all">
+            <i class="fa-solid fa-robot text-purple-400"></i>
+            <span class="btn-text">Restore Automatic Mode</span>
+            <span class="btn-spinner hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Stats Row -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-fade-up" style="animation-delay: 0.4s;">
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Raw ADC A0</span>
+          <i class="fa-solid fa-microchip text-slate-500"></i>
+        </div>
+        <div id="stat-raw" class="text-2xl font-bold font-mono text-white">512</div>
+        <div class="text-[10px] text-slate-400 mt-1">10-bit analog</div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Min Moisture</span>
+          <i class="fa-solid fa-arrow-trend-down text-rose-400"></i>
+        </div>
+        <div id="stat-min" class="text-2xl font-bold font-mono text-rose-400">--%</div>
+        <div class="text-[10px] text-slate-400 mt-1">Session low</div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Max Moisture</span>
+          <i class="fa-solid fa-arrow-trend-up text-cyan-400"></i>
+        </div>
+        <div id="stat-max" class="text-2xl font-bold font-mono text-cyan-400">--%</div>
+        <div class="text-[10px] text-slate-400 mt-1">Session peak</div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Avg Moisture</span>
+          <i class="fa-solid fa-chart-line text-emerald-400"></i>
+        </div>
+        <div id="stat-avg" class="text-2xl font-bold font-mono text-emerald-400">--%</div>
+        <div class="text-[10px] text-slate-400 mt-1">Rolling average</div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Pump Cycles</span>
+          <i class="fa-solid fa-repeat text-purple-400"></i>
+        </div>
+        <div id="stat-cycles" class="text-2xl font-bold font-mono text-purple-300">0</div>
+        <div class="text-[10px] text-slate-400 mt-1">Total activations</div>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="flex items-center justify-between text-slate-400 text-xs mb-1">
+          <span>Total Runtime</span>
+          <i class="fa-regular fa-clock text-amber-400"></i>
+        </div>
+        <div id="stat-runtime" class="text-2xl font-bold font-mono text-amber-300">00m 00s</div>
+        <div class="text-[10px] text-slate-400 mt-1">Cumulative ON time</div>
+      </div>
+    </div>
+
+    <!-- Chart & Log -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-up" style="animation-delay: 0.5s;">
+      <section class="lg:col-span-8 glass-card p-6 flex flex-col justify-between">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-chart-area text-emerald-400"></i>
+              Live Moisture Dynamics & Hysteresis
+            </h3>
+            <p class="text-xs text-slate-400">Real-time telemetry updated every 1 second</p>
+          </div>
+
+          <div class="flex items-center bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs">
+            <button onclick="setChartRange(60)" id="range-60" class="px-3 py-1 rounded-lg text-emerald-300 bg-emerald-500/20 font-mono transition-colors">1 Min</button>
+            <button onclick="setChartRange(300)" id="range-300" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono transition-colors">5 Min</button>
+            <button onclick="setChartRange(200)" id="range-all" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono transition-colors">All (200)</button>
+          </div>
+        </div>
+
+        <div class="w-full h-72 relative">
+          <canvas id="moistureChart"></canvas>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 pt-3 border-t border-white/5 font-mono">
+          <span class="flex items-center gap-2">
+            <span class="w-3 h-1 bg-emerald-400 rounded-full inline-block"></span> Soil Moisture %
+          </span>
+          <span class="flex items-center gap-2">
+            <span class="w-3 h-0.5 border-b border-dashed border-rose-400 inline-block"></span> Pump ON (<span id="legend-thresh-on">30</span>%)
+          </span>
+          <span class="flex items-center gap-2">
+            <span class="w-3 h-0.5 border-b border-dashed border-cyan-400 inline-block"></span> Pump OFF (<span id="legend-thresh-off">60</span>%)
+          </span>
+        </div>
+      </section>
+
+      <section class="lg:col-span-4 glass-card p-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-cyan-400"></i>
+              System Activity Log
+            </h3>
+            <button onclick="clearActivityLog()" class="text-[10px] text-slate-400 hover:text-slate-200 uppercase font-mono">Clear</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-3">Audited real-time transitions and commands</p>
+          <div id="activity-log-feed" class="space-y-2 max-h-72 overflow-y-auto pr-1 text-xs"></div>
+        </div>
+
+        <div class="pt-3 border-t border-white/5 text-[11px] text-slate-400 flex items-center justify-between font-mono">
+          <span>Connection Mode:</span>
+          <span id="gateway-heartbeat" class="text-emerald-400">Direct / Ready</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- Presets & Settings -->
+    <section class="glass-card p-6 md:p-8 animate-fade-up" style="animation-delay: 0.6s;">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h3 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-amber-400"></i>
+            Operational Thresholds & Sensor Calibration
+          </h3>
+          <p class="text-xs text-slate-400">Tune hysteresis margins or choose crop-specific watering presets</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-mono">Quick Preset:</span>
+          <select id="preset-selector" onchange="applyCropPreset(this.value)" class="bg-slate-900 border border-white/10 text-xs font-mono rounded-lg px-3 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500">
+            <option value="garden" selected>Standard Garden (30% - 60%)</option>
+            <option value="tomato">Tomato / Peppers (40% - 70%)</option>
+            <option value="succulent">Cacti / Succulents (15% - 35%)</option>
+            <option value="tropical">Tropical Foliage (50% - 80%)</option>
+          </select>
+        </div>
+      </div>
+
+      <form id="settings-form" onsubmit="submitSettings(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="space-y-1.5">
+          <label class="text-xs font-mono text-slate-300 flex items-center justify-between">
+            <span>Threshold ON (Trigger Pump)</span>
+            <span class="text-rose-400 font-semibold">%</span>
+          </label>
+          <input type="number" id="input-thresh-on" min="1" max="95" required
+            class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            value="30">
+          <span class="text-[10px] text-slate-500 block">Pump starts when moisture &lt; this value</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs font-mono text-slate-300 flex items-center justify-between">
+            <span>Threshold OFF (Stop Pump)</span>
+            <span class="text-cyan-400 font-semibold">%</span>
+          </label>
+          <input type="number" id="input-thresh-off" min="5" max="99" required
+            class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            value="60">
+          <span class="text-[10px] text-slate-500 block">Pump stops when moisture &gt; this value</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs font-mono text-slate-300 flex items-center justify-between">
+            <span>Dry Value (Air Baseline)</span>
+            <span class="text-amber-400 font-semibold">Raw ADC</span>
+          </label>
+          <input type="number" id="input-dry-val" min="350" max="950" required
+            class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            value="620">
+          <span class="text-[10px] text-slate-500 block">Sensor in dry air (~580 - 680)</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="text-xs font-mono text-slate-300 flex items-center justify-between">
+            <span>Wet Value (Water Baseline)</span>
+            <span class="text-emerald-400 font-semibold">Raw ADC</span>
+          </label>
+          <input type="number" id="input-wet-val" min="150" max="500" required
+            class="w-full bg-slate-900/90 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+            value="310">
+          <span class="text-[10px] text-slate-500 block">Sensor in water (~280 - 350)</span>
+        </div>
+
+        <div class="md:col-span-2 lg:col-span-4 flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-white/5">
+          <button type="button" onclick="loadCurrentArduinoSettings()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 transition-colors">
+            Sync from Device
+          </button>
+
+          <button type="submit" id="btn-save-settings" class="ripple-btn px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white tracking-wide shadow-lg shadow-emerald-950 transition-all flex items-center gap-2">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span id="save-settings-text">Flash Settings to Arduino</span>
+            <span id="save-settings-spinner" class="hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <footer class="text-center text-xs text-slate-400 py-4 font-mono">
+      Smart Irrigation System &bull; Direct Web Serial &bull; Serial-to-Web 9600 Baud
+    </footer>
+
+  </main>
+
+  <!-- Frontend Javascript -->
+  <script>
+    const appState = {
+      connected: false,
+      isDemo: true, // Defaults to demo until real serial/API connects
+      audioEnabled: false,
+      telemetry: null,
+      history: [],
+      chartRange: 60,
+      session: {
+        minMoisture: null,
+        maxMoisture: null,
+        moistureSum: 0,
+        samplesCount: 0,
+        pumpCycles: 0,
+        totalPumpSeconds: 0,
+        pumpStartTime: null,
+        lastPumpState: "OFF"
+      }
+    };
+
+    let chartInstance = null;
+    let pollInterval = null;
+    let demoSimInterval = null;
+    let particlesAnimationId = null;
+
+    // Direct Web Serial API handles
+    let webSerialPort = null;
+    let webSerialWriter = null;
+    let webSerialReader = null;
+    let webSerialReading = false;
+
+    /* Web Audio Synthesizer */
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (!appState.audioEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        if (type === 'click') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'pump_on') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.linearRampToValueAtTime(190, now + 0.25);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        }
+      } catch (e) {}
+    }
+
+    function toggleAudio() {
+      appState.audioEnabled = !appState.audioEnabled;
+      const icon = document.getElementById('audio-icon');
+      if (appState.audioEnabled) {
+        icon.className = 'fa-solid fa-volume-high text-emerald-400';
+        showToast('Sound effects enabled', 'success');
+        playSound('click');
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark text-slate-400';
+        showToast('Sound effects muted', 'neutral');
+      }
+    }
+
+    /* Ambient particles */
+    function initParticles() {
+      const canvas = document.getElementById('particles-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let width = canvas.width = window.innerWidth;
+      let height = canvas.height = window.innerHeight;
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const particles = [];
+      const count = Math.min(30, Math.floor(width / 45));
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          radius: Math.random() * 1.8 + 0.6,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: -Math.random() * 0.4 - 0.2,
+          alpha: Math.random() * 0.5 + 0.2,
+          color: Math.random() > 0.5 ? 'rgba(34, 197, 94, ' : 'rgba(56, 189, 248, '
+        });
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.y < 0) { p.y = height + 10; p.x = Math.random() * width; }
+          if (p.x < 0) p.x = width;
+          if (p.x > width) p.x = 0;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color + p.alpha + ')';
+          ctx.fill();
+        });
+        particlesAnimationId = requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    /* Chart.js */
+    function initChart() {
+      const ctx = document.getElementById('moistureChart').getContext('2d');
+      const gradient = ctx.createLinearGradient(0, 0, 0, 260);
+      gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Moisture (%)',
+              data: [],
+              borderColor: '#10b981',
+              backgroundColor: gradient,
+              borderWidth: 2.5,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 0,
+            },
+            {
+              label: 'Threshold ON',
+              data: [],
+              borderColor: '#f43f5e',
+              borderWidth: 1.5,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: 0,
+            },
+            {
+              label: 'Threshold OFF',
+              data: [],
+              borderColor: '#06b6d4',
+              borderWidth: 1.5,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: 0,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+            },
+            y: {
+              min: 0, max: 100,
+              grid: { color: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.1)' },
+              ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 }, stepSize: 20, callback: v => v + '%' }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    function setChartRange(rangeSeconds) {
+      playSound('click');
+      appState.chartRange = rangeSeconds;
+      ['60', '300', 'all'].forEach(id => {
+        const btn = document.getElementById(`range-${id}`);
+        if (btn) btn.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-white font-mono transition-colors';
+      });
+      const activeBtn = document.getElementById(rangeSeconds === 60 ? 'range-60' : (rangeSeconds === 300 ? 'range-300' : 'range-all'));
+      if (activeBtn) activeBtn.className = 'px-3 py-1 rounded-lg text-emerald-300 bg-emerald-500/20 font-mono transition-colors';
+      updateChartData();
+    }
+
+    function updateChartData() {
+      if (!chartInstance || !appState.history) return;
+      const limit = appState.chartRange;
+      const slice = limit === 200 ? appState.history : appState.history.slice(-limit);
+
+      const labels = [];
+      const moistureData = [];
+      const threshOnData = [];
+      const threshOffData = [];
+
+      const currentOn = appState.telemetry ? appState.telemetry.threshold_on : 30;
+      const currentOff = appState.telemetry ? appState.telemetry.threshold_off : 60;
+
+      slice.forEach(pt => {
+        let timeStr = "";
+        if (pt.timestamp) {
+          const d = new Date(pt.timestamp);
+          timeStr = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        labels.push(timeStr);
+        moistureData.push(pt.moisture);
+        threshOnData.push(pt.threshold_on || currentOn);
+        threshOffData.push(pt.threshold_off || currentOff);
+      });
+
+      chartInstance.data.labels = labels;
+      chartInstance.data.datasets[0].data = moistureData;
+      chartInstance.data.datasets[1].data = threshOnData;
+      chartInstance.data.datasets[2].data = threshOffData;
+      chartInstance.update('none');
+    }
+
+    /* Gauge & UI updates */
+    let currentDisplayedMoisture = 0;
+    let moistureAnimFrame = null;
+
+    function updateGauge(targetMoisture, rawVal, thresholdOn, thresholdOff) {
+      const totalArc = 518.36;
+      const targetOffset = totalArc - (targetMoisture / 100.0) * totalArc;
+
+      const fillPath = document.getElementById('gauge-fill-path');
+      if (fillPath) fillPath.style.strokeDashoffset = targetOffset.toFixed(2);
+
+      animateRollingNumber(targetMoisture);
+
+      const rawEl = document.getElementById('gauge-raw-val');
+      if (rawEl) rawEl.textContent = rawVal;
+
+      const waveContainer = document.getElementById('wave-container');
+      if (waveContainer) {
+        const translateY = 230 - (targetMoisture / 100.0) * 160;
+        waveContainer.setAttribute('transform', `translate(0, ${translateY.toFixed(1)})`);
+      }
+
+      const zoneBadge = document.getElementById('moisture-zone-badge');
+      const zoneText = document.getElementById('zone-text');
+      const halo = document.getElementById('gauge-glow-halo');
+      const plantAvatar = document.getElementById('plant-avatar');
+
+      if (targetMoisture < thresholdOn) {
+        if (zoneBadge) zoneBadge.className = 'px-3 py-1 rounded-full text-xs font-bold tracking-wide border flex items-center gap-1.5 bg-rose-500/10 text-rose-400 border-rose-500/30';
+        if (zoneText) zoneText.textContent = 'TOO DRY';
+        if (halo) halo.className = 'absolute w-64 h-64 rounded-full blur-2xl pointer-events-none transition-all duration-700 bg-rose-500 opacity-30';
+        if (plantAvatar) plantAvatar.textContent = '🥀';
+      } else if (targetMoisture > thresholdOff) {
+        if (zoneBadge) zoneBadge.className = 'px-3 py-1 rounded-full text-xs font-bold tracking-wide border flex items-center gap-1.5 bg-cyan-500/10 text-cyan-400 border-cyan-500/30';
+        if (zoneText) zoneText.textContent = 'TOO WET';
+        if (halo) halo.className = 'absolute w-64 h-64 rounded-full blur-2xl pointer-events-none transition-all duration-700 bg-cyan-500 opacity-20';
+        if (plantAvatar) plantAvatar.textContent = '🌊';
+      } else {
+        if (zoneBadge) zoneBadge.className = 'px-3 py-1 rounded-full text-xs font-bold tracking-wide border flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        if (zoneText) zoneText.textContent = 'OPTIMAL';
+        if (halo) halo.className = 'absolute w-64 h-64 rounded-full blur-2xl pointer-events-none transition-all duration-700 bg-emerald-500 opacity-20';
+        if (plantAvatar) plantAvatar.textContent = '🌿';
+      }
+    }
+
+    function animateRollingNumber(target) {
+      if (moistureAnimFrame) cancelAnimationFrame(moistureAnimFrame);
+      const start = currentDisplayedMoisture;
+      const change = target - start;
+      const startTime = performance.now();
+      const duration = 500;
+
+      function step(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(start + change * ease);
+
+        const el = document.getElementById('moisture-number');
+        if (el) el.textContent = current;
+
+        if (progress < 1) {
+          moistureAnimFrame = requestAnimationFrame(step);
+        } else {
+          currentDisplayedMoisture = target;
+        }
+      }
+      moistureAnimFrame = requestAnimationFrame(step);
+    }
+
+    /* Pump UI */
+    let pumpRuntimeSeconds = 0;
+    function updatePump(pumpState) {
+      const isPumpOn = (pumpState === "ON");
+      const impellerIcon = document.getElementById('impeller-icon');
+      const impellerHalo = document.getElementById('impeller-halo');
+      const pipeLiquid = document.getElementById('pipe-liquid');
+      const pumpPill = document.getElementById('pump-status-pill');
+      const pumpLed = document.getElementById('pump-led');
+      const pumpText = document.getElementById('pump-status-text');
+
+      if (isPumpOn) {
+        if (impellerIcon) { impellerIcon.classList.remove('spin-stop'); impellerIcon.classList.add('spin-fast'); }
+        if (impellerHalo) impellerHalo.classList.remove('opacity-0');
+        if (pipeLiquid) { pipeLiquid.classList.remove('opacity-0'); pipeLiquid.classList.add('pipe-active'); }
+        if (pumpPill) pumpPill.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold font-mono tracking-wider transition-all duration-500 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-lg shadow-emerald-900/50';
+        if (pumpLed) pumpLed.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping';
+        if (pumpText) pumpText.textContent = 'RUNNING';
+
+        if (appState.session.lastPumpState !== "ON") {
+          appState.session.pumpCycles++;
+          pumpRuntimeSeconds = 0;
+          playSound('pump_on');
+          logActivity(`💧 Submersible Pump activated (Moisture: ${appState.telemetry ? appState.telemetry.moisture : '--'}%)`, 'info');
+        }
+      } else {
+        if (impellerIcon) { impellerIcon.classList.remove('spin-fast'); impellerIcon.classList.add('spin-stop'); }
+        if (impellerHalo) impellerHalo.classList.add('opacity-0');
+        if (pipeLiquid) { pipeLiquid.classList.remove('pipe-active'); pipeLiquid.classList.add('opacity-0'); }
+        if (pumpPill) pumpPill.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold font-mono tracking-wider transition-all duration-500 bg-slate-800 text-slate-400 border border-slate-700';
+        if (pumpLed) pumpLed.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+        if (pumpText) pumpText.textContent = 'OFF';
+
+        if (appState.session.lastPumpState === "ON") {
+          logActivity(`🛑 Pump turned OFF. Run duration: ${pumpRuntimeSeconds}s`, 'neutral');
+        }
+      }
+
+      appState.session.lastPumpState = pumpState;
+    }
+
+    setInterval(() => {
+      if (appState.telemetry && appState.telemetry.pump === "ON") {
+        pumpRuntimeSeconds++;
+        appState.session.totalPumpSeconds++;
+
+        const hrs = String(Math.floor(pumpRuntimeSeconds / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((pumpRuntimeSeconds % 3600) / 60)).padStart(2, '0');
+        const secs = String(pumpRuntimeSeconds % 60).padStart(2, '0');
+        const clockEl = document.getElementById('pump-runtime-clock');
+        if (clockEl) clockEl.textContent = `${hrs}:${mins}:${secs}`;
+
+        const pct = Math.min((pumpRuntimeSeconds / 60) * 100, 100);
+        const progressBar = document.getElementById('safety-progress-bar');
+        const progressLabel = document.getElementById('safety-progress-label');
+        if (progressBar) progressBar.style.width = pct + '%';
+        if (progressLabel) progressLabel.textContent = `${pumpRuntimeSeconds}s / 60s`;
+      } else {
+        const progressBar = document.getElementById('safety-progress-bar');
+        const progressLabel = document.getElementById('safety-progress-label');
+        if (progressBar) progressBar.style.width = '0%';
+        if (progressLabel) progressLabel.textContent = '0s / 60s';
+      }
+
+      const totalM = String(Math.floor(appState.session.totalPumpSeconds / 60)).padStart(2, '0');
+      const totalS = String(appState.session.totalPumpSeconds % 60).padStart(2, '0');
+      const statRuntime = document.getElementById('stat-runtime');
+      if (statRuntime) statRuntime.textContent = `${totalM}m ${totalS}s`;
+
+      const statCycles = document.getElementById('stat-cycles');
+      if (statCycles) statCycles.textContent = appState.session.pumpCycles;
+    }, 1000);
+
+    function updateStats(moisture, rawVal) {
+      if (appState.session.minMoisture === null || moisture < appState.session.minMoisture) appState.session.minMoisture = moisture;
+      if (appState.session.maxMoisture === null || moisture > appState.session.maxMoisture) appState.session.maxMoisture = moisture;
+      appState.session.moistureSum += moisture;
+      appState.session.samplesCount++;
+      const avg = Math.round(appState.session.moistureSum / appState.session.samplesCount);
+
+      document.getElementById('stat-raw').textContent = rawVal;
+      document.getElementById('stat-min').textContent = `${appState.session.minMoisture}%`;
+      document.getElementById('stat-max').textContent = `${appState.session.maxMoisture}%`;
+      document.getElementById('stat-avg').textContent = `${avg}%`;
+    }
+
+    /* Telemetry Dispatcher */
+    function handleTelemetryUpdate(res) {
+      dismissSplash();
+      setConnectionUI(true, res.port);
+
+      if (!res.data) return;
+      const data = res.data;
+      appState.telemetry = data;
+
+      updateGauge(data.moisture, data.raw, data.threshold_on, data.threshold_off);
+      updatePump(data.pump);
+      updateStats(data.moisture, data.raw);
+      updateModeButtons(data.mode);
+
+      toggleAlertBanner('safety-alert', data.safety_cutoff);
+      toggleAlertBanner('sensor-fault-alert', !data.sensor_ok);
+
+      document.getElementById('thresh-on-label').textContent = data.threshold_on;
+      document.getElementById('thresh-off-label').textContent = data.threshold_off;
+      document.getElementById('legend-thresh-on').textContent = data.threshold_on;
+      document.getElementById('legend-thresh-off').textContent = data.threshold_off;
+
+      appState.history.push(data);
+      if (appState.history.length > 200) appState.history.shift();
+      updateChartData();
+    }
+
+    function dismissSplash() {
+      const splash = document.getElementById('splash-screen');
+      if (splash && !splash.classList.contains('hidden')) {
+        splash.classList.add('opacity-0');
+        setTimeout(() => splash.classList.add('hidden'), 700);
+      }
+    }
+
+    function setConnectionUI(connected, port) {
+      const banner = document.getElementById('disconnection-banner');
+      const connPill = document.getElementById('connection-pill');
+      const connPillText = document.getElementById('connection-pill-text');
+      const connPortText = document.getElementById('connection-port-text');
+      const connDot = document.getElementById('conn-dot');
+      const root = document.getElementById('dashboard-root');
+
+      if (connected) {
+        banner.classList.add('hidden');
+        root.classList.remove('stale-overlay');
+        connPill.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-emerald-500/30 text-xs font-medium cursor-pointer';
+        connPillText.textContent = appState.isDemo ? 'Demo Mode' : 'Connected';
+        connPillText.className = appState.isDemo ? 'text-amber-300 font-mono' : 'text-emerald-300 font-mono';
+        connPortText.textContent = port ? `(${port})` : '';
+        connDot.className = appState.isDemo ? 'w-2.5 h-2.5 rounded-full bg-amber-400' : 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping';
+      }
+    }
+
+    function toggleAlertBanner(id, show) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (show) el.classList.remove('hidden');
+      else el.classList.add('hidden');
+    }
+
+    function updateModeButtons(mode) {
+      const autoBtn = document.getElementById('mode-btn-auto');
+      const manualBtn = document.getElementById('mode-btn-manual');
+      if (!autoBtn || !manualBtn) return;
+      if (mode === "AUTO") {
+        autoBtn.className = 'px-3.5 py-1.5 rounded-lg transition-all duration-300 text-white bg-emerald-600 shadow-md';
+        manualBtn.className = 'px-3.5 py-1.5 rounded-lg transition-all duration-300 text-slate-400 hover:text-white';
+      } else {
+        manualBtn.className = 'px-3.5 py-1.5 rounded-lg transition-all duration-300 text-white bg-amber-600 shadow-md';
+        autoBtn.className = 'px-3.5 py-1.5 rounded-lg transition-all duration-300 text-slate-400 hover:text-white';
+      }
+    }
+
+    /* DIRECT WEB SERIAL API (Works in Chrome & Edge with 1 click) */
+    async function connectWebSerial() {
+      playSound('click');
+      if (!("serial" in navigator)) {
+        showToast("Web Serial is supported in Google Chrome, Microsoft Edge, and Opera. Please open this page in Chrome or Edge.", "error", 6000);
+        return;
+      }
+
+      try {
+        webSerialPort = await navigator.serial.requestPort();
+        await webSerialPort.open({ baudRate: 9600 });
+        webSerialReading = true;
+
+        showToast("Arduino connected via Direct Web Serial!", "success");
+        logActivity("Direct USB Serial connection established at 9600 baud", "success");
+
+        // Disable demo mode
+        appState.isDemo = false;
+        document.getElementById('demo-badge').classList.add('hidden');
+        document.getElementById('web-serial-btn-text').textContent = 'USB Connected (9600)';
+        document.getElementById('gateway-heartbeat').textContent = 'Web Serial (USB)';
+        setConnectionUI(true, 'USB-SERIAL');
+
+        readWebSerialStream();
+      } catch (err) {
+        if (err.name !== 'NotFoundError') {
+          showToast(`Serial error: ${err.message}`, "error");
+        }
+      }
+    }
+
+    async function readWebSerialStream() {
+      const textDecoder = new TextDecoderStream();
+      webSerialPort.readable.pipeTo(textDecoder.writable);
+      const reader = textDecoder.readable.getReader();
+      webSerialReader = reader;
+
+      let buffer = "";
+      try {
+        while (webSerialReading) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            buffer += value;
+            const lines = buffer.split(/[\r\n]+/);
+            buffer = lines.pop(); // keep last partial line
+
+            for (const line of lines) {
+              const clean = line.trim();
+              if (clean.startsWith("{") && clean.endsWith("}")) {
+                try {
+                  const data = JSON.parse(clean);
+                  handleTelemetryUpdate({
+                    connected: true,
+                    port: "USB-SERIAL",
+                    last_update_seconds_ago: 0.1,
+                    data: data
+                  });
+                } catch (e) {}
+              } else if (clean.startsWith("ACK:") || clean.startsWith("ERR:")) {
+                logActivity(`Arduino reply: ${clean}`, clean.startsWith("ACK:") ? "success" : "error");
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Serial disconnected:", err);
+        showToast("USB Serial disconnected.", "error");
+        setConnectionUI(false, null);
+      } finally {
+        reader.releaseLock();
+      }
+    }
+
+    async function writeWebSerial(command) {
+      if (!webSerialPort || !webSerialPort.writable) throw new Error("Port not writable");
+      const encoder = new TextEncoder();
+      const writer = webSerialPort.writable.getWriter();
+      await writer.write(encoder.encode(command + "\n"));
+      writer.releaseLock();
+    }
+
+    /* INTERACTIVE SIMULATION DEMO (Runs seamlessly if no hardware is connected) */
+    let demoState = {
+      raw: 512,
+      moisture: 45,
+      pump: "OFF",
+      mode: "AUTO",
+      threshold_on: 30,
+      threshold_off: 60,
+      dry: 620,
+      wet: 310,
+      sensor_ok: true,
+      safety_cutoff: false
+    };
+
+    function startDemoSimulation() {
+      if (demoSimInterval) clearInterval(demoSimInterval);
+      demoSimInterval = setInterval(() => {
+        if (!appState.isDemo) return;
+
+        if (demoState.pump === "ON") {
+          demoState.moisture = Math.min(100, demoState.moisture + 2);
+        } else {
+          demoState.moisture = Math.max(15, demoState.moisture - 1);
+        }
+
+        if (demoState.mode === "AUTO" && !demoState.safety_cutoff) {
+          if (demoState.moisture < demoState.threshold_on) {
+            demoState.pump = "ON";
+          } else if (demoState.moisture > demoState.threshold_off) {
+            demoState.pump = "OFF";
+          }
+        }
+
+        demoState.raw = Math.round(demoState.dry - ((demoState.dry - demoState.wet) * (demoState.moisture / 100.0)));
+
+        handleTelemetryUpdate({
+          connected: true,
+          port: "SIMULATOR",
+          last_update_seconds_ago: 0.1,
+          data: { ...demoState, timestamp: new Date().toISOString() }
+        });
+      }, 1000);
+    }
+
+    function toggleDemoMode(force = false) {
+      playSound('click');
+      appState.isDemo = force ? true : !appState.isDemo;
+      const demoBadge = document.getElementById('demo-badge');
+      if (appState.isDemo) {
+        demoBadge.classList.remove('hidden');
+        showToast('Interactive Demo Mode is active. Click any button to test controls!', 'info');
+        startDemoSimulation();
+      } else {
+        demoBadge.classList.add('hidden');
+        showToast('Polling hardware serial...', 'info');
+      }
+    }
+
+    /* Command & Settings Handlers */
+    async function sendControl(command) {
+      playSound('click');
+
+      // 1. Direct Web Serial
+      if (webSerialPort && webSerialReading) {
+        try {
+          await writeWebSerial(command);
+          showToast(`Sent ${command} via USB Serial`, 'success');
+          logActivity(`-> TX: ${command}`, 'success');
+          return;
+        } catch (err) {
+          showToast(`USB Error: ${err.message}`, 'error');
+        }
+      }
+
+      // 2. Demo Mode
+      if (appState.isDemo) {
+        if (command === 'PUMP_ON') { demoState.pump = "ON"; demoState.mode = "MANUAL"; demoState.safety_cutoff = false; }
+        else if (command === 'PUMP_OFF') { demoState.pump = "OFF"; demoState.mode = "MANUAL"; demoState.safety_cutoff = false; }
+        else if (command === 'AUTO') { demoState.mode = "AUTO"; demoState.safety_cutoff = false; }
+        showToast(`Simulation: Executed ${command}`, 'success');
+        logActivity(`Simulated command: ${command}`, 'success');
+        return;
+      }
+
+      // 3. REST API Fallback (Flask / Node)
+      try {
+        const response = await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: command })
+        });
+        const res = await response.json();
+        if (response.ok) {
+          showToast(`Command ${command} executed (${res.reply || 'ACK'})`, 'success');
+          logActivity(`Command executed: ${command}`, 'success');
+        } else {
+          showToast(`Error: ${res.message}`, 'error');
+        }
+      } catch (err) {
+        showToast(`API error: ${err.message}`, 'error');
+      }
+    }
+
+    function setManualPrompt() {
+      playSound('click');
+      showToast('Click "Force Pump ON" or "Force Pump OFF" to command manual mode.', 'info');
+    }
+
+    /* Crop Presets */
+    const cropPresets = {
+      garden: { on: 30, off: 60 },
+      tomato: { on: 40, off: 70 },
+      succulent: { on: 15, off: 35 },
+      tropical: { on: 50, off: 80 }
+    };
+
+    function applyCropPreset(presetKey) {
+      playSound('click');
+      if (cropPresets[presetKey]) {
+        document.getElementById('input-thresh-on').value = cropPresets[presetKey].on;
+        document.getElementById('input-thresh-off').value = cropPresets[presetKey].off;
+        showToast(`Loaded ${presetKey.toUpperCase()} preset. Click "Flash Settings" to apply.`, 'info');
+      }
+    }
+
+    async function submitSettings(event) {
+      event.preventDefault();
+      playSound('click');
+
+      const onVal = parseInt(document.getElementById('input-thresh-on').value, 10);
+      const offVal = parseInt(document.getElementById('input-thresh-off').value, 10);
+      const dryVal = parseInt(document.getElementById('input-dry-val').value, 10);
+      const wetVal = parseInt(document.getElementById('input-wet-val').value, 10);
+
+      if (onVal >= offVal || onVal < 1 || offVal > 99) {
+        showToast('Threshold ON must be less than Threshold OFF (1% - 99%)', 'error');
+        return;
+      }
+      if (dryVal <= wetVal) {
+        showToast('Dry value must be higher than Wet value for capacitive sensors', 'error');
+        return;
+      }
+
+      // 1. Direct Web Serial
+      if (webSerialPort && webSerialReading) {
+        try {
+          await writeWebSerial(`SET_THRESHOLDS:${onVal},${offVal}`);
+          await writeWebSerial(`SET_CALIB:${dryVal},${wetVal}`);
+          showToast('Flashed settings directly to Arduino via USB!', 'success');
+          logActivity(`Flashed settings: ON=${onVal}%, OFF=${offVal}%, DRY=${dryVal}, WET=${wetVal}`, 'success');
+          return;
+        } catch (err) {
+          showToast(`USB Error: ${err.message}`, 'error');
+        }
+      }
+
+      // 2. Demo Mode
+      if (appState.isDemo) {
+        demoState.threshold_on = onVal;
+        demoState.threshold_off = offVal;
+        demoState.dry = dryVal;
+        demoState.wet = wetVal;
+        showToast('Demo settings updated!', 'success');
+        logActivity(`Calibration updated: ON=${onVal}%, OFF=${offVal}%, DRY=${dryVal}, WET=${wetVal}`, 'success');
+        return;
+      }
+
+      // 3. REST API Fallback
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threshold_on: onVal, threshold_off: offVal, dry: dryVal, wet: wetVal })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Settings flashed successfully to Arduino firmware!', 'success');
+        } else {
+          showToast(`Error: ${data.message}`, 'error');
+        }
+      } catch (err) {
+        showToast(`API error: ${err.message}`, 'error');
+      }
+    }
+
+    function loadCurrentArduinoSettings() {
+      playSound('click');
+      if (!appState.telemetry) return;
+      document.getElementById('input-thresh-on').value = appState.telemetry.threshold_on;
+      document.getElementById('input-thresh-off').value = appState.telemetry.threshold_off;
+      if (appState.telemetry.dry) document.getElementById('input-dry-val').value = appState.telemetry.dry;
+      if (appState.telemetry.wet) document.getElementById('input-wet-val').value = appState.telemetry.wet;
+      showToast('Form synchronised with active device values.', 'info');
+    }
+
+    /* Logging & Toasts */
+    function logActivity(text, type = 'info') {
+      const feed = document.getElementById('activity-log-feed');
+      if (!feed) return;
+      const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const item = document.createElement('div');
+      item.className = 'p-2 rounded-xl bg-slate-900/60 border border-white/5 flex items-start gap-2 animate-fade-up';
+      let iconClass = type === 'success' ? 'fa-check text-emerald-400' : (type === 'error' ? 'fa-triangle-exclamation text-rose-400' : 'fa-info text-cyan-400');
+      item.innerHTML = `
+        <div class="mt-0.5"><i class="fa-solid ${iconClass} text-[10px]"></i></div>
+        <div class="flex-1"><p class="text-slate-200 leading-tight">${text}</p><span class="text-[9px] text-slate-500 font-mono">${time}</span></div>
+      `;
+      feed.insertBefore(item, feed.firstChild);
+      while (feed.children.length > 25) feed.removeChild(feed.lastChild);
+    }
+
+    function clearActivityLog() {
+      playSound('click');
+      const feed = document.getElementById('activity-log-feed');
+      if (feed) feed.innerHTML = '';
+      logActivity('Log cleared by operator.', 'neutral');
+    }
+
+    function showToast(message, type = 'info', duration = 3500) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'pointer-events-auto glass-card p-3.5 flex items-start gap-3 shadow-2xl relative overflow-hidden transition-all duration-300 transform translate-x-12 opacity-0';
+      let border = type === 'success' ? 'border-emerald-500/30' : (type === 'error' ? 'border-rose-500/30' : 'border-cyan-500/30');
+      let icon = type === 'success' ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' : (type === 'error' ? '<i class="fa-solid fa-circle-xmark text-rose-400"></i>' : '<i class="fa-solid fa-circle-info text-cyan-400"></i>');
+      let progressColor = type === 'success' ? 'bg-emerald-500' : (type === 'error' ? 'bg-rose-500' : 'bg-cyan-500');
+
+      toast.style.borderColor = border;
+      toast.innerHTML = `
+        <div class="text-base mt-0.5">${icon}</div>
+        <div class="flex-1 text-xs text-slate-200">${message}</div>
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+        <div class="absolute bottom-0 left-0 h-0.5 ${progressColor} transition-all ease-linear" style="width: 100%; transition-duration: ${duration}ms;"></div>
+      `;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.remove('translate-x-12', 'opacity-0'));
+      const bar = toast.querySelector(`.${progressColor}`);
+      setTimeout(() => { if (bar) bar.style.width = '0%'; }, 50);
+      setTimeout(() => { toast.classList.add('translate-x-12', 'opacity-0'); setTimeout(() => toast.remove(), 400); }, duration);
+    }
+
+    function toggleTheme() {
+      playSound('click');
+      const html = document.documentElement;
+      const themeIcon = document.getElementById('theme-icon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        themeIcon.className = 'fa-solid fa-sun text-amber-400';
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        themeIcon.className = 'fa-solid fa-moon text-slate-300';
+      }
+    }
+
+    /* Ripple micro-interaction */
+    document.addEventListener('click', function(e) {
+      const target = e.target.closest('.ripple-btn');
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const circle = document.createElement('span');
+      const diameter = Math.max(rect.width, rect.height);
+      circle.style.width = circle.style.height = `${diameter}px`;
+      circle.style.left = `${e.clientX - rect.left - diameter/2}px`;
+      circle.style.top = `${e.clientY - rect.top - diameter/2}px`;
+      circle.classList.add('ripple-effect');
+      const existing = target.querySelector('.ripple-effect');
+      if (existing) existing.remove();
+      target.appendChild(circle);
+    });
+
+    /* Init */
+    window.addEventListener('DOMContentLoaded', () => {
+      initParticles();
+      initChart();
+
+      // Launch interactive demo by default so UI is immediately active
+      startDemoSimulation();
+
+      // Attempt background check for Flask/Node API
+      fetch('/api/data')
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.connected) {
+            appState.isDemo = false;
+            document.getElementById('demo-badge').classList.add('hidden');
+            handleTelemetryUpdate(res);
+            setInterval(() => {
+              if (!appState.isDemo && !webSerialReading) {
+                fetch('/api/data').then(r => r.json()).then(handleTelemetryUpdate).catch(() => {});
+              }
+            }, 1000);
+          }
+        })
+        .catch(() => {});
+
+      logActivity('Dashboard initialized. Click "Connect USB" to link your Arduino!', 'info');
+    });
+  </script>
+</body>
+</html>
